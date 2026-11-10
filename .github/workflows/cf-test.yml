@@ -1,0 +1,17 @@
+name: cf-test
+on:
+  workflow_dispatch:
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe CurseForge upload API endpoints
+        env:
+          T: ${{ secrets.CURSEFORGE_TOKEN }}
+        run: |
+          for host in minecraft minecraft-bedrock minecraftbedrock; do
+            echo "===== $host.curseforge.com ====="
+            code=$(curl -s -o /tmp/r.json -w "%{http_code}" -H "X-Api-Token: $T" "https://$host.curseforge.com/api/game/versions" || echo "curl-fail")
+            echo "HTTP $code"
+            head -c 400 /tmp/r.json 2>/dev/null; echo
+          done
