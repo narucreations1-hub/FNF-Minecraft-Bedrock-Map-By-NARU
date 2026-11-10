@@ -5,13 +5,13 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Probe CurseForge upload API endpoints
+      - name: Bedrock versions and types
         env:
           T: ${{ secrets.CURSEFORGE_TOKEN }}
         run: |
-          for host in minecraft minecraft-bedrock minecraftbedrock; do
-            echo "===== $host.curseforge.com ====="
-            code=$(curl -s -o /tmp/r.json -w "%{http_code}" -H "X-Api-Token: $T" "https://$host.curseforge.com/api/game/versions" || echo "curl-fail")
-            echo "HTTP $code"
-            head -c 400 /tmp/r.json 2>/dev/null; echo
-          done
+          curl -s -H "X-Api-Token: $T" "https://minecraft-bedrock.curseforge.com/api/game/versions" -o v.json
+          echo "total versions: $(jq 'length' v.json)"
+          echo "--- newest 20 by id ---"
+          jq -r 'sort_by(.id) | .[-20:][] | "\(.id)\t\(.name)\ttype=\(.gameVersionTypeID)"' v.json
+          echo "--- version types ---"
+          curl -s -H "X-Api-Token: $T" "https://minecraft-bedrock.curseforge.com/api/game/version-types" | jq -r '.[] | "\(.id)\t\(.name)"'
