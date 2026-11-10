@@ -1,0 +1,40 @@
+name: publish-curseforge
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download .mcworld from the latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          mkdir -p dl
+          if [ -n "$TAG" ]; then
+            gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "*.mcworld" --dir dl
+          else
+            gh release download --repo "$GITHUB_REPOSITORY" --pattern "*.mcworld" --dir dl
+          fi
+          ls -la dl
+      - name: Upload to CurseForge (Bedrock)
+        env:
+          T: ${{ secrets.CURSEFORGE_TOKEN }}
+          NOTES: ${{ github.event.release.body }}
+        run: |
+          FILE=$(ls dl/*.mcworld | head -1)
+          CL="${NOTES:-Actualizacion del mapa}"
+          META=$(jq -n --arg cl "$CL" '{changelog:$cl, changelogType:"text", releaseType:"release", gameVersions:[17384]}')
+          echo "Subiendo $FILE"
+          RESP=$(curl -s -w $'\nHTTP %{http_code}' -X POST \
+            "https://minecraft-bedrock.curseforge.com/api/projects/1797242/upload-file" \
+            -H "X-Api-Token: $T" \
+            -F "metadata=$META" \
+            -F "file=@$FILE")
+          echo "Respuesta: $RESP"
+          echo "$RESP" | tail -1 | grep -q "HTTP 200" || { echo "La subida fallo"; exit 1; }
+          echo "Subida OK"
